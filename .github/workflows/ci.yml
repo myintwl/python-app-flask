@@ -7,6 +7,7 @@ on:
       - 'src/**'
       - 'Dockerfile'
       - 'charts/**'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [ main ]
     paths:
