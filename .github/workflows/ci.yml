@@ -25,10 +25,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
+      # ──────────────────────────────────────────
+      # 1. Checkout
+      # ──────────────────────────────────────────
       - name: Check out the repository
         uses: actions/checkout@v4
 
+      # ──────────────────────────────────────────
+      # 2. Set Image Tag
+      # ──────────────────────────────────────────
       - name: Set image tag
         id: tag
         run: |
@@ -39,6 +46,9 @@ jobs:
             echo "IMAGE_TAG=${SHORT_SHA}" >> $GITHUB_ENV
           fi
 
+      # ──────────────────────────────────────────
+      # 3. Docker Setup
+      # ──────────────────────────────────────────
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -48,9 +58,56 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      # ──────────────────────────────────────────
+      # 4. Build and Push
+      # ──────────────────────────────────────────
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: myintwl/python-app:${{ env.IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ──────────────────────────────────────────
+      # 5. Test Docker Image
+      # ──────────────────────────────────────────
+      - name: Test Docker image
+        run: |
+          echo "Starting container on port 5000..."
+          docker run -d --name flask-test -p 5000:5000 myintwl/python-app:${{ env.IMAGE_TAG }}
+
+          echo "Waiting for Flask to start..."
+          sleep 5
+
+          echo "Testing /api/v1/health..."
+          curl --fail --retry 5 --retry-delay 2 --verbose http://localhost:5000/api/v1/health
+
+          echo "Testing /api/v1/details..."
+          curl --fail --retry 5 --retry-delay 2 --verbose http://localhost:5000/api/v1/details
+
+          echo "All tests passed!"
+
+      # ──────────────────────────────────────────
+      # 6. Print Results
+      # ──────────────────────────────────────────
+      - name: Print image info
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Build successful!"
+          echo "📦 Image : myintwl/python-app:${{ env.IMAGE_TAG }}"
+          echo "🔖 Tag   : ${{ env.IMAGE_TAG }}"
+          echo "🔑 SHA   : ${{ github.sha }}"
+          echo "🌿 Branch: ${{ github.ref_name }}"
+          echo "👤 Actor : ${{ github.actor }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      # ──────────────────────────────────────────
+      # 7. Cleanup — always runs even on failure
+      # ──────────────────────────────────────────
+      - name: Clean up test container
+        if: always()
+        run: |
+          docker stop flask-test || true
+          docker rm flask-test || true
