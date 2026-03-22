@@ -50,4 +50,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: myintwl/python-app:$(echo ${{ github.sha }} | cut -c1-7)"
+          tags: myintwl/python-app:$echo "IMAGE_TAG=$(echo ${{ github.sha }} | cut -c1-4)" >> $GITHUB_ENV
