@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: python-app-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: python-app.local
+      http:
+        paths:
+          - path: /api/v1/details
+            pathType: Prefix
+            backend:
+              service:
+                name: python-app
+                port:
+                  number: 5000
+          - path: /api/v1/health
+            pathType: Prefix
+            backend:
+              service:
+                name: python-app
+                port:
+                  number: 5000
