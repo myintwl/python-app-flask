@@ -81,7 +81,7 @@ jobs:
 
           echo "Waiting for Flask to be ready..."
           for i in {1..15}; do
-            if curl -s http://localhost:5000/api/v1/health > /dev/null 2>&1; then
+            if curl -s http://localhost:5000/api/v1/healths > /dev/null 2>&1; then
               echo "Flask is ready!"
               break
             fi
@@ -90,7 +90,7 @@ jobs:
           done
 
           echo "Testing /api/v1/health..."
-          curl --fail --retry 5 --retry-delay 2 --verbose http://localhost:5000/api/v1/health
+          curl --fail --retry 5 --retry-delay 2 --verbose http://localhost:5000/api/v1/healths
 
           echo "Testing /api/v1/details..."
           curl --fail --retry 5 --retry-delay 2 --verbose http://localhost:5000/api/v1/details
