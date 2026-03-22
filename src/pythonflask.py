@@ -1,5 +1,5 @@
-#api/v1/details
-#api/v1/healths
+#api/v1/details with 's'
+#api/v1/healths with 's'
 from flask import Flask, jsonify
 
 app = Flask(__name__)
