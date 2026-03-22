@@ -14,6 +14,7 @@ on:
       - 'src/**'
       - 'Dockerfile'
       - 'charts/**'
+      - '.github/workflows/ci.yml'
   workflow_dispatch:
     inputs:
       tag:
@@ -34,7 +35,8 @@ jobs:
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "IMAGE_TAG=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
           else
-            echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_ENV
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-4)
+            echo "IMAGE_TAG=${SHORT_SHA}" >> $GITHUB_ENV
           fi
 
       - name: Set up Docker Buildx
@@ -51,4 +53,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: myintwl/python-app:$echo "IMAGE_TAG=$(echo ${{ github.sha }} | cut -c1-4)" >> $GITHUB_ENV
+          tags: myintwl/python-app:${{ env.IMAGE_TAG }}
