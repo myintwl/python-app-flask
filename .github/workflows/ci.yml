@@ -267,29 +267,6 @@ jobs:
           docker stop flask-test || true
           docker rm flask-test || true
           docker image prune -f
-```
-
-**Security scanning summary:**
-
-| Type | Tool | What it scans | When |
-|------|------|---------------|------|
-| **SAST** | Bandit | Python source code for insecure patterns | Before build |
-| **SCA** | Trivy fs | `requirements.txt` dependencies for CVEs | Before build |
-| **Container Scan** | Trivy image | Built Docker image layers for CVEs and secrets | After build, before push |
-| **DAST** | OWASP ZAP | Live running app for web vulnerabilities | After build, before push |
-| **Functional** | curl | API endpoints return correct responses | After build, before push |
-
-**Pipeline flow:**
-```
-SAST (Bandit) ──┐
-                ├──→ Build image → Container Scan (Trivy)
-SCA  (Trivy)  ──┘                        ↓
-                               DAST (OWASP ZAP) on live container
-                                         ↓
-                               Functional tests (curl)
-                                         ↓
-                               Push to Docker Hub ✅
-
 
 # name: CI
 

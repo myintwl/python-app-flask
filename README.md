@@ -701,3 +701,24 @@ sudo minikube tunnel
 | `Tunnel already running` | Old tunnel process not terminated | `pkill -f "minikube tunnel"` |
 | Flask unreachable in container | Bound to `127.0.0.1` instead of `0.0.0.0` | Set `host='0.0.0.0'` in `app.run()` |
 | ArgoCD cert warning in browser | Self-signed certificate | Click Advanced → Proceed |
+
+**Security scanning summary:**
+
+| Type | Tool | What it scans | When |
+|------|------|---------------|------|
+| **SAST** | Bandit | Python source code for insecure patterns | Before build |
+| **SCA** | Trivy fs | `requirements.txt` dependencies for CVEs | Before build |
+| **Container Scan** | Trivy image | Built Docker image layers for CVEs and secrets | After build, before push |
+| **DAST** | OWASP ZAP | Live running app for web vulnerabilities | After build, before push |
+| **Functional** | curl | API endpoints return correct responses | After build, before push |
+
+**Pipeline flow:**
+```
+SAST (Bandit) ──┐
+                ├──→ Build image → Container Scan (Trivy)
+SCA  (Trivy)  ──┘                        ↓
+                               DAST (OWASP ZAP) on live container
+                                         ↓
+                               Functional tests (curl)
+                                         ↓
+                               Push to Docker Hub ✅
