@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Security Scan Report — myintwl/python-app</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; }
+    header { background: #161b22; border-bottom: 1px solid #30363d; padding: 20px 40px; display: flex; align-items: center; gap: 16px; }
+    header h1 { font-size: 20px; font-weight: 600; color: #f0f6fc; }
+    header .meta { font-size: 13px; color: #8b949e; margin-top: 4px; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 32px 40px; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 40px; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; }
+    .card h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; margin-bottom: 12px; }
+    .card .tool { font-size: 18px; font-weight: 700; color: #f0f6fc; margin-bottom: 8px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; margin: 2px; }
+    .badge-critical { background: #3d1f1f; color: #f85149; border: 1px solid #f85149; }
+    .badge-high     { background: #2d1f0f; color: #e3b341; border: 1px solid #e3b341; }
+    .badge-medium   { background: #1f2d1f; color: #3fb950; border: 1px solid #3fb950; }
+    .badge-low      { background: #1f2533; color: #58a6ff; border: 1px solid #58a6ff; }
+    .section { margin-bottom: 40px; }
+    .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #30363d; }
+    .section-header h2 { font-size: 16px; font-weight: 600; color: #f0f6fc; }
+    .section-header .tag { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+    .tag-sast { background: #1f2d3d; color: #58a6ff; }
+    .tag-sca  { background: #2d1f3d; color: #bc8cff; }
+    .tag-dast { background: #2d1f1f; color: #f85149; }
+    .tag-img  { background: #1f2d1f; color: #3fb950; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
+    th { background: #21262d; padding: 10px 14px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; border-bottom: 1px solid #30363d; }
+    td { padding: 10px 14px; border-bottom: 1px solid #21262d; vertical-align: top; word-break: break-word; max-width: 250px; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #1c2128; }
+    .sev-critical { color: #f85149; font-weight: 700; }
+    .sev-high     { color: #e3b341; font-weight: 700; }
+    .sev-medium   { color: #3fb950; font-weight: 600; }
+    .sev-low      { color: #58a6ff; }
+    footer { text-align: center; padding: 24px; font-size: 12px; color: #8b949e; border-top: 1px solid #30363d; margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>🔐 Security Scan Report</h1>
+      <div class="meta">
+        📦 myintwl/python-app &nbsp;|&nbsp;
+        🌿 main &nbsp;|&nbsp;
+        🔑 4decaa6df3acc6088d5e3cb6e425c3f0db809c04 &nbsp;|&nbsp;
+        👤 myintwl &nbsp;|&nbsp;
+        🕐 2026-03-23 02:31 UTC
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+      <div class="card">
+        <h3>SAST — Bandit</h3>
+        <div class="tool">Python Code</div>
+        <span class="badge badge-high">High: 0</span>
+        <span class="badge badge-medium">Med: 1</span>
+        <span class="badge badge-low">Low: 0</span>
+      </div>
+      <div class="card">
+        <h3>SCA — Trivy FS</h3>
+        <div class="tool">Dependencies</div>
+        <span class="badge badge-critical">Critical: 0</span>
+        <span class="badge badge-high">High: 0</span>
+      </div>
+      <div class="card">
+        <h3>Container — Trivy</h3>
+        <div class="tool">Docker Image</div>
+        <span class="badge badge-critical">Critical: 0</span>
+        <span class="badge badge-high">High: 0</span>
+      </div>
+      <div class="card">
+        <h3>DAST — OWASP ZAP</h3>
+        <div class="tool">Live App</div>
+        <span class="badge badge-high">High: 0</span>
+        <span class="badge badge-medium">Med: 0</span>
+        <span class="badge badge-low">Low: 0</span>
+      </div>
+    </div>
+
+    <!-- SAST Results -->
+    <div class="section">
+      <div class="section-header">
+        <h2>SAST Results</h2>
+        <span class="tag tag-sast">Bandit</span>
+      </div>
+      <table>
+        <thead><tr><th>File</th><th>Test</th><th>Severity</th><th>Issue</th><th>Line</th></tr></thead>
+        <tbody><tr><td>src/pythonflask.py</td><td>hardcoded_bind_all_interfaces</td><td class="sev-medium">MEDIUM</td><td>Possible binding to all interfaces.</td><td>16</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- SCA Results -->
+    <div class="section">
+      <div class="section-header">
+        <h2>SCA Results — Filesystem</h2>
+        <span class="tag tag-sca">Trivy FS</span>
+      </div>
+      <table>
+        <thead><tr><th>CVE ID</th><th>Package</th><th>Severity</th><th>Title</th><th>Installed</th><th>Fixed In</th></tr></thead>
+        <tbody><tr><td colspan=6>Report not available</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- Container Scan Results -->
+    <div class="section">
+      <div class="section-header">
+        <h2>Container Image Scan</h2>
+        <span class="tag tag-img">Trivy Image</span>
+      </div>
+      <table>
+        <thead><tr><th>CVE ID</th><th>Package</th><th>Severity</th><th>Title</th><th>Installed</th><th>Fixed In</th></tr></thead>
+        <tbody><tr><td colspan=6>Report not available</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- DAST Results -->
+    <div class="section">
+      <div class="section-header">
+        <h2>DAST Results</h2>
+        <span class="tag tag-dast">OWASP ZAP</span>
+      </div>
+      <table>
+        <thead><tr><th>Alert</th><th>Risk</th><th>Description</th><th>Solution</th></tr></thead>
+        <tbody><tr><td colspan=4>Report not available</td></tr></tbody>
+      </table>
+    </div>
+
+  </div>
+  <footer>Generated by GitHub Actions &nbsp;·&nbsp; myintwl/python-app-flask &nbsp;·&nbsp; Run #12</footer>
+</body>
+</html>
