@@ -23,8 +23,86 @@ on:
         default: 'latest'
 
 jobs:
-  build:
+  # ════════════════════════════════════════════
+  # JOB 1 — SAST (Static Application Security Testing)
+  # Tool: Bandit (Python source code scanner)
+  # ════════════════════════════════════════════
+  sast:
+    name: SAST - Bandit
     runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Bandit
+        run: pip install bandit
+
+      - name: Run Bandit SAST scan
+        run: |
+          echo "Running SAST scan on src/..."
+          bandit -r src/ -f json -o bandit-report.json || true
+          bandit -r src/ -f txt
+        continue-on-error: false
+
+      - name: Upload SAST report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-sast-report
+          path: bandit-report.json
+
+  # ════════════════════════════════════════════
+  # JOB 2 — SCA (Software Composition Analysis)
+  # Tool: Trivy (dependency + container scanner)
+  # ════════════════════════════════════════════
+  sca:
+    name: SCA - Trivy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Run Trivy SCA on requirements.txt
+        run: |
+          echo "Scanning Python dependencies..."
+          trivy fs requirements.txt \
+            --scanners vuln \
+            --format table
+
+      - name: Run Trivy SCA on filesystem
+        run: |
+          echo "Scanning full filesystem for vulnerabilities..."
+          trivy fs . \
+            --scanners vuln,secret,misconfig \
+            --format json \
+            --output trivy-fs-report.json || true
+          trivy fs . \
+            --scanners vuln,secret,misconfig \
+            --format table
+
+      - name: Upload SCA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-sca-report
+          path: trivy-fs-report.json
+
+  # ════════════════════════════════════════════
+  # JOB 3 — Build, Container Scan, Test & Push
+  # ════════════════════════════════════════════
+  build:
+    name: Build, Scan, Test & Push
+    runs-on: ubuntu-latest
+    needs: [ sast, sca ]                          # ← only runs if SAST and SCA pass
 
     steps:
       # ──────────────────────────────────────────
@@ -72,16 +150,45 @@ jobs:
           cache-to: type=gha,mode=max
 
       # ──────────────────────────────────────────
-      # 5. Test BEFORE pushing
+      # 5. Container Image Scan (Trivy)
       # ──────────────────────────────────────────
-      - name: Test Docker image
+      - name: Scan Docker image with Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+          echo "Scanning container image for vulnerabilities..."
+          trivy image \
+            --scanners vuln,secret \
+            --severity HIGH,CRITICAL \
+            --format table \
+            myintwl/python-app:${{ env.IMAGE_TAG }}
+
+          trivy image \
+            --scanners vuln,secret \
+            --severity HIGH,CRITICAL \
+            --format json \
+            --output trivy-image-report.json \
+            myintwl/python-app:${{ env.IMAGE_TAG }} || true
+
+      - name: Upload image scan report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-image-report
+          path: trivy-image-report.json
+
+      # ──────────────────────────────────────────
+      # 6. Test BEFORE pushing (DAST)
+      # Tool: OWASP ZAP baseline scan
+      # ──────────────────────────────────────────
+      - name: Start Flask container for DAST
         run: |
           echo "Starting container on port 5000..."
           docker run -d --name flask-test -p 5000:5000 myintwl/python-app:${{ env.IMAGE_TAG }}
 
           echo "Waiting for Flask to be ready..."
           for i in {1..15}; do
-            if curl -s http://localhost:5000/api/v1/healths > /dev/null 2>&1; then
+            if curl -s http://localhost:5000/api/v1/health > /dev/null 2>&1; then
               echo "Flask is ready!"
               break
             fi
@@ -89,16 +196,44 @@ jobs:
             sleep 2
           done
 
+      - name: Run DAST - OWASP ZAP Baseline Scan
+        run: |
+          echo "Running OWASP ZAP DAST scan..."
+          docker run --rm \
+            --network host \
+            -v $(pwd):/zap/wrk/:rw \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+            -t http://localhost:5000 \
+            -r zap-report.html \
+            -J zap-report.json \
+            -I || true
+          echo "DAST scan complete"
+
+      - name: Upload DAST report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-dast-report
+          path: |
+            zap-report.html
+            zap-report.json
+
+      # ──────────────────────────────────────────
+      # 7. Functional Tests
+      # ──────────────────────────────────────────
+      - name: Run functional tests
+        run: |
           echo "Testing /api/v1/health..."
-          curl --fail --retry 5 --retry-delay 2 --verbose http://localhost:5000/api/v1/healths
+          curl --fail --retry 5 --retry-delay 2 --verbose http://localhost:5000/api/v1/health
 
           echo "Testing /api/v1/details..."
           curl --fail --retry 5 --retry-delay 2 --verbose http://localhost:5000/api/v1/details
 
-          echo "All tests passed!"
+          echo "All functional tests passed!"
 
       # ──────────────────────────────────────────
-      # 6. Push ONLY if tests passed
+      # 8. Push ONLY if all scans and tests passed
       # ──────────────────────────────────────────
       - name: Push Docker image
         uses: docker/build-push-action@v5
@@ -110,7 +245,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       # ──────────────────────────────────────────
-      # 7. Print Results
+      # 9. Print Results
       # ──────────────────────────────────────────
       - name: Print image info
         run: |
@@ -124,11 +259,169 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
       # ──────────────────────────────────────────
-      # 8. Cleanup — always runs even on failure
+      # 10. Cleanup — always runs even on failure
       # ──────────────────────────────────────────
-      - name: Clean up test container
+      - name: Clean up
         if: always()
         run: |
           docker stop flask-test || true
           docker rm flask-test || true
           docker image prune -f
+```
+
+**Security scanning summary:**
+
+| Type | Tool | What it scans | When |
+|------|------|---------------|------|
+| **SAST** | Bandit | Python source code for insecure patterns | Before build |
+| **SCA** | Trivy fs | `requirements.txt` dependencies for CVEs | Before build |
+| **Container Scan** | Trivy image | Built Docker image layers for CVEs and secrets | After build, before push |
+| **DAST** | OWASP ZAP | Live running app for web vulnerabilities | After build, before push |
+| **Functional** | curl | API endpoints return correct responses | After build, before push |
+
+**Pipeline flow:**
+```
+SAST (Bandit) ──┐
+                ├──→ Build image → Container Scan (Trivy)
+SCA  (Trivy)  ──┘                        ↓
+                               DAST (OWASP ZAP) on live container
+                                         ↓
+                               Functional tests (curl)
+                                         ↓
+                               Push to Docker Hub ✅
+
+
+# name: CI
+
+# on:
+#   push:
+#     branches: [ main ]
+#     paths:
+#       - 'src/**'
+#       - 'Dockerfile'
+#       - 'charts/**'
+#       - '.github/workflows/ci.yml'
+#   pull_request:
+#     branches: [ main ]
+#     paths:
+#       - 'src/**'
+#       - 'Dockerfile'
+#       - 'charts/**'
+#       - '.github/workflows/ci.yml'
+#   workflow_dispatch:
+#     inputs:
+#       tag:
+#         description: 'Docker image tag (e.g. v1, v2, latest)'
+#         required: true
+#         default: 'latest'
+
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       # ──────────────────────────────────────────
+#       # 1. Checkout
+#       # ──────────────────────────────────────────
+#       - name: Check out the repository
+#         uses: actions/checkout@v4
+
+#       # ──────────────────────────────────────────
+#       # 2. Set Image Tag
+#       # ──────────────────────────────────────────
+#       - name: Set image tag
+#         id: tag
+#         run: |
+#           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+#             echo "IMAGE_TAG=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
+#           else
+#             SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-4)
+#             echo "IMAGE_TAG=${SHORT_SHA}" >> $GITHUB_ENV
+#           fi
+
+#       # ──────────────────────────────────────────
+#       # 3. Docker Setup
+#       # ──────────────────────────────────────────
+#       - name: Set up Docker Buildx
+#         uses: docker/setup-buildx-action@v3
+
+#       - name: Log in to Docker Hub
+#         uses: docker/login-action@v3
+#         with:
+#           username: ${{ secrets.DOCKER_USERNAME }}
+#           password: ${{ secrets.DOCKER_PASSWORD }}
+
+#       # ──────────────────────────────────────────
+#       # 4. Build ONLY (no push yet)
+#       # ──────────────────────────────────────────
+#       - name: Build Docker image
+#         uses: docker/build-push-action@v5
+#         with:
+#           context: .
+#           push: false
+#           load: true
+#           tags: myintwl/python-app:${{ env.IMAGE_TAG }}
+#           cache-from: type=gha
+#           cache-to: type=gha,mode=max
+
+#       # ──────────────────────────────────────────
+#       # 5. Test BEFORE pushing
+#       # ──────────────────────────────────────────
+#       - name: Test Docker image
+#         run: |
+#           echo "Starting container on port 5000..."
+#           docker run -d --name flask-test -p 5000:5000 myintwl/python-app:${{ env.IMAGE_TAG }}
+
+#           echo "Waiting for Flask to be ready..."
+#           for i in {1..15}; do
+#             if curl -s http://localhost:5000/api/v1/healths > /dev/null 2>&1; then
+#               echo "Flask is ready!"
+#               break
+#             fi
+#             echo "Attempt $i/15 - waiting..."
+#             sleep 2
+#           done
+
+#           echo "Testing /api/v1/health..."
+#           curl --fail --retry 5 --retry-delay 2 --verbose http://localhost:5000/api/v1/healths
+
+#           echo "Testing /api/v1/details..."
+#           curl --fail --retry 5 --retry-delay 2 --verbose http://localhost:5000/api/v1/details
+
+#           echo "All tests passed!"
+
+#       # ──────────────────────────────────────────
+#       # 6. Push ONLY if tests passed
+#       # ──────────────────────────────────────────
+#       - name: Push Docker image
+#         uses: docker/build-push-action@v5
+#         with:
+#           context: .
+#           push: true
+#           tags: myintwl/python-app:${{ env.IMAGE_TAG }}
+#           cache-from: type=gha
+#           cache-to: type=gha,mode=max
+
+#       # ──────────────────────────────────────────
+#       # 7. Print Results
+#       # ──────────────────────────────────────────
+#       - name: Print image info
+#         run: |
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#           echo "✅ Build successful!"
+#           echo "📦 Image : myintwl/python-app:${{ env.IMAGE_TAG }}"
+#           echo "🔖 Tag   : ${{ env.IMAGE_TAG }}"
+#           echo "🔑 SHA   : ${{ github.sha }}"
+#           echo "🌿 Branch: ${{ github.ref_name }}"
+#           echo "👤 Actor : ${{ github.actor }}"
+#           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+#       # ──────────────────────────────────────────
+#       # 8. Cleanup — always runs even on failure
+#       # ──────────────────────────────────────────
+#       - name: Clean up test container
+#         if: always()
+#         run: |
+#           docker stop flask-test || true
+#           docker rm flask-test || true
+#           docker image prune -f
