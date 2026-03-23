@@ -225,7 +225,7 @@ jobs:
       - name: Run functional tests
         run: |
           echo "Testing /api/v1/health..."
-          curl --fail --retry 5 --retry-delay 2 --verbose http://localhost:5000/api/v1/health
+          curl --fail --retry 5 --retry-delay 2 --verbose http://localhost:5000/api/v1/healths
 
           echo "Testing /api/v1/details..."
           curl --fail --retry 5 --retry-delay 2 --verbose http://localhost:5000/api/v1/details
