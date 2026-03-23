@@ -66,7 +66,7 @@ jobs:
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin || { echo "Trivy install failed"; exit 1; }
           trivy --version
-          
+
       - name: Run Trivy SCA scan
         run: |
           trivy fs . \
@@ -181,7 +181,7 @@ jobs:
 
       - name: Run functional tests
         run: |
-          curl --fail --retry 5 --retry-delay 2 http://localhost:5000/api/v1/health
+          curl --fail --retry 5 --retry-delay 2 http://localhost:5000/api/v1/healths
           curl --fail --retry 5 --retry-delay 2 http://localhost:5000/api/v1/details
           echo "All functional tests passed!"
 
