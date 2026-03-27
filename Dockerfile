@@ -1,14 +1,3 @@
-# FROM python:3.10-slim
-
-# COPY ./requirements.txt /tmp
-
-# RUN pip install -r /tmp/requirements.txt
-
-# COPY src /app
-
-# WORKDIR /app
-
-# CMD [ "python", "pythonflask.py" ]
 FROM python:3.10-slim
 
 # Install curl and clean up in a single layer to keep image size small
