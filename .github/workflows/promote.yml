@@ -46,7 +46,6 @@ jobs:
         env:
           IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
         run: |
-          kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
           kubectl apply --namespace staging -f deployment.yml
           kubectl --namespace staging set image deployment/python-app \
             python-app=myintwl/python-app:${IMAGE_TAG}
