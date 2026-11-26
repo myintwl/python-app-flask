@@ -8,6 +8,7 @@ on:
       - "src/**"
       - "requirements.txt"
       - "Dockerfile"
+      - "tests/**"
       - ".github/workflows/ci.yml"
   pull_request:
     branches:
@@ -16,12 +17,35 @@ on:
       - "src/**"
       - "requirements.txt"
       - "Dockerfile"
+      - "tests/**"
       - ".github/workflows/ci.yml"
   workflow_dispatch:
 
 jobs:
+  test:
+    name: Sanity tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest
+
+      - name: Run sanity tests
+        run: pytest tests
+
   docker:
     name: Build Docker image
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
