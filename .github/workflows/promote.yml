@@ -14,6 +14,9 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     environment:
       name: staging
 
@@ -26,18 +29,24 @@ jobs:
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
 
-      - name: Configure Kubernetes access
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Configure EKS access
         env:
-          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_STAGING }}
+          EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
         run: |
-          mkdir -p "$HOME/.kube"
-          printf '%s' "$KUBE_CONFIG" | base64 --decode > "$HOME/.kube/config"
-          chmod 600 "$HOME/.kube/config"
+          aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
 
       - name: Deploy image to staging
         env:
           IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
         run: |
+          kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
           kubectl apply --namespace staging -f deployment.yml
           kubectl --namespace staging set image deployment/python-app \
             python-app=myintwl/python-app:${IMAGE_TAG}
